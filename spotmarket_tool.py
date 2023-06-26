@@ -17,14 +17,7 @@ def get_json_data(api_url):
         print("Fehler beim API-Aufruf.")
         return None, duration
 
-# Beispiel-API-URL
-zip_code = "33829"
-api_url = f"https://api.corrently.io/v2.0/gsi/marketdata?zip={zip_code}"
-
-# API-Aufruf und Ausgabe der JSON-Daten
-json_data, request_time = get_json_data(api_url)
-if json_data:
-    # Tabellarische Darstellung der JSON-Daten
+def display_json_data(json_data):
     print("JSON-Daten:")
     headers = ['Zeitpunkt', 'Market Price (Eur/MWh)', 'Local Price (Eur/MWh)']
     print(f"{headers[0]:<20} {headers[1]:<25} {headers[2]:<25}")
@@ -34,19 +27,28 @@ if json_data:
         local_price = data_point['localprice']
         print(f"{start_time:<20} {market_price:<25.2f} {local_price:<25.2f}")
 
-    # Excel-Arbeitsmappe erstellen und Daten schreiben
+def create_excel_file(json_data):
     excel_file = 'energy_prices.xlsx'
     workbook = Workbook()
     worksheet = workbook.active
+    headers = ['Zeitpunkt', 'Market Price (Eur/MWh)', 'Local Price (Eur/MWh)']
     worksheet.append(headers)
     for data_point in json_data.get('data', []):
         start_time = datetime.datetime.fromtimestamp(data_point['start_timestamp'] / 1000).strftime('%d.%m.%Y %H:%M:%S')
         market_price = data_point['marketprice']
         local_price = data_point['localprice']
         worksheet.append([start_time, market_price, local_price])
-
-    # Excel-Datei speichern
     workbook.save(excel_file)
+
+# Beispiel-API-URL
+zip_code = "33829"
+api_url = f"https://api.corrently.io/v2.0/gsi/marketdata?zip={zip_code}"
+
+# API-Aufruf und Ausgabe der JSON-Daten
+json_data, request_time = get_json_data(api_url)
+if json_data:
+    display_json_data(json_data)
+    create_excel_file(json_data)
 
     # Extrahieren der relevanten Werte für die Diagrammerstellung
     data_points = json_data.get('data', [])  # Überprüfung, ob das Feld 'data' vorhanden ist
@@ -85,7 +87,7 @@ if json_data:
     plt.xlabel('Zeit')
     plt.ylabel('Preis (Eur/MWh)')
     plt.title('Strompreise')
-    plt.legend(fontsize='6', loc = "best")  # Legende mit kleinerer Schriftgröße
+    plt.legend(fontsize='6', loc="best")  # Legende mit kleinerer Schriftgröße
 
     # X-Achse formatieren
     plt.xticks(rotation=45, ha='right')
@@ -99,6 +101,6 @@ if json_data:
     # Diagramm anzeigen
     plt.tight_layout()
     plt.show()
-    
+
     # Zeit für den API-Request ausgeben
     print(f"\nDauer des API-Requests: {request_time:.2f} ms")
