@@ -19,26 +19,35 @@ def get_json_data(api_url):
 
 def display_json_data(json_data):
     print("JSON-Daten:")
-    headers = ['Zeitpunkt', 'Market Price (Eur/MWh)', 'Local Price (Eur/MWh)']
+    headers = ['Zeitpunkt', 'Market Price (EUR/kWh)', 'Local Price (EUR/kWh)']
     print(f"{headers[0]:<20} {headers[1]:<25} {headers[2]:<25}")
     for data_point in json_data.get('data', []):
         start_time = datetime.datetime.fromtimestamp(data_point['start_timestamp'] / 1000).strftime('%d.%m.%Y %H:%M:%S')
-        market_price = data_point['marketprice']
-        local_price = data_point['localprice']
+        market_price = convert_mwh_to_kwh(data_point['marketprice'])
+        local_price = convert_mwh_to_kwh(data_point['localprice'])
         print(f"{start_time:<20} {market_price:<25.2f} {local_price:<25.2f}")
 
 def create_excel_file(json_data):
     excel_file = 'energy_prices.xlsx'
     workbook = Workbook()
     worksheet = workbook.active
-    headers = ['Zeitpunkt', 'Market Price (Eur/MWh)', 'Local Price (Eur/MWh)']
+    headers = ['Zeitpunkt', 'Market Price (EUR/kWh)', 'Local Price (EUR/kWh)']
     worksheet.append(headers)
     for data_point in json_data.get('data', []):
         start_time = datetime.datetime.fromtimestamp(data_point['start_timestamp'] / 1000).strftime('%d.%m.%Y %H:%M:%S')
-        market_price = data_point['marketprice']
-        local_price = data_point['localprice']
+        market_price = convert_mwh_to_kwh(data_point['marketprice'])
+        local_price = convert_mwh_to_kwh(data_point['localprice'])
         worksheet.append([start_time, market_price, local_price])
     workbook.save(excel_file)
+
+def calculate_average_price(json_data):
+    data_points = json_data.get('data', [])
+    local_prices = [convert_mwh_to_kwh(point['localprice']) for point in data_points]
+    average_price = sum(local_prices) / len(local_prices)
+    return average_price
+
+def convert_mwh_to_kwh(price):
+    return price / 1000
 
 # Beispiel-API-URL
 zip_code = "33829"
@@ -51,10 +60,10 @@ if json_data:
     create_excel_file(json_data)
 
     # Extrahieren der relevanten Werte für die Diagrammerstellung
-    data_points = json_data.get('data', [])  # Überprüfung, ob das Feld 'data' vorhanden ist
+    data_points = json_data.get('data', [])
     data_points_sorted = sorted(data_points, key=lambda x: x['start_timestamp'])
     start_times = [datetime.datetime.fromtimestamp(point['start_timestamp'] / 1000) for point in data_points_sorted]
-    local_prices = [point['localprice'] for point in data_points_sorted]
+    local_prices = [convert_mwh_to_kwh(point['localprice']) for point in data_points_sorted]
     
     # Erstellen des Diagramms
     plt.figure(dpi=1024)
@@ -68,6 +77,8 @@ if json_data:
     max_price = max(local_prices)
     min_index = local_prices.index(min_price)
     max_index = local_prices.index(max_price)
+    
+    average_price = calculate_average_price(json_data)
 
     # Höchsten und niedrigsten Preis in der Grafik markieren
     plt.plot(start_times[min_index], min_price, 'go', label='Niedrigster Preis')
@@ -76,16 +87,22 @@ if json_data:
     print("\nHöchster Preis:")
     formatted_max_time = start_times[max_index].strftime('%d.%m.%Y %H:%M:%S')
     print(f"Zeitpunkt: {formatted_max_time}")
-    print(f"Lokal-Preis: {max_price:.2f} Eur/MWh")
+    print(f"Lokal-Preis: {max_price:.2f} EUR/kWh")
 
     print("\nNiedrigster Preis:")
     formatted_min_time = start_times[min_index].strftime('%d.%m.%Y %H:%M:%S')
     print(f"Zeitpunkt: {formatted_min_time}")
-    print(f"Lokal-Preis: {min_price:.2f} Eur/MWh")
+    print(f"Lokal-Preis: {min_price:.2f} EUR/kWh")
+    
+    print("\nDurchschnittspreis:")
+    print(f"Lokal-Preis: {average_price:.2f} EUR/kWh")
+    
+    # Zeit für den API-Request ausgeben
+    print(f"\nDauer des API-Requests: {request_time:.2f} ms")
 
     # Diagramm beschriften
     plt.xlabel('Zeit')
-    plt.ylabel('Preis (Eur/MWh)')
+    plt.ylabel('Preis (EUR/kWh)')
     plt.title('Strompreise')
     plt.legend(fontsize='6', loc="best")  # Legende mit kleinerer Schriftgröße
 
@@ -101,6 +118,3 @@ if json_data:
     # Diagramm anzeigen
     plt.tight_layout()
     plt.show()
-
-    # Zeit für den API-Request ausgeben
-    print(f"\nDauer des API-Requests: {request_time:.2f} ms")
